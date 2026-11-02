@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Networking Cheat Sheet — Chapters 1–5</title>
+<style>
+  :root{--ink:#111827;--mut:#4b5563;--line:#cbd5e1;--accent:#0369a1}
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{font:9pt/1.32 "Segoe UI",system-ui,Roboto,Helvetica,Arial,sans-serif;color:var(--ink);background:#fff}
+  .sheet{max-width:190mm;margin:0 auto;padding:8mm 6mm}
+  h1{font-size:13pt;margin:0 0 1mm;color:var(--accent)}
+  .sub{font-size:7.5pt;color:var(--mut);margin:0 0 3mm}
+  .cols{column-count:2;column-gap:14px}
+  section{break-inside:avoid;border:0.6pt solid var(--line);border-radius:3mm;padding:2mm 2.4mm;margin:0 0 2.2mm;background:#f8fafc}
+  h2{font-size:9.5pt;margin:0 0 1.2mm;padding-bottom:0.8mm;border-bottom:0.6pt solid var(--line);color:var(--accent)}
+  p{margin:0 0 1mm}
+  ul{margin:0;padding-left:3.4mm}
+  li{margin:0 0 0.5mm}
+  b{color:#0f172a}
+  code,.k{background:#e2e8f0;border-radius:1mm;padding:0 0.8mm;font-family:ui-monospace,Consolas,monospace;font-size:8pt}
+  .box{break-inside:avoid;border:0.9pt solid var(--accent);border-radius:3mm;padding:2.2mm 2.6mm;margin-top:1mm;background:#eff6ff}
+  .box h2{border:0;color:var(--accent)}
+  .row{display:flex;gap:3mm}
+  .row>div{flex:1}
+  .btn{position:fixed;top:10px;right:10px;background:var(--accent);color:#fff;border:0;border-radius:1.5mm;padding:6px 12px;font:9pt system-ui;cursor:pointer}
+  @page{size:A4 portrait;margin:8mm}
+  @media print{ body{background:#fff}.btn{display:none}.sheet{padding:0;max-width:none} section{background:#fafbfc} }
+</style>
+</head>
+<body>
+<button class="btn" onclick="window.print()">🖨 Print</button>
+<div class="sheet">
+  <h1>Networking Cheat Sheet — Chapters 1–5</h1>
+  <p class="sub"><i>An Introduction to Computer Networks</i> (Dordal, 2e) · one-page review of the key facts, numbers, and formulas.</p>
+
+  <div class="cols">
+    <section>
+      <h2>1 · Overview of Networks</h2>
+      <ul>
+        <li><b>Layers:</b> Physical → Link → Network (IP) → Transport → Application.</li>
+        <li><b>Forwarding table:</b> destination → next hop (neighbor form) or interface (interface form). Use <b>default route</b> otherwise <b>most-specific / longest-prefix match</b>.</li>
+        <li><b>Routing</b> builds tables (control plane); <b>forwarding</b> uses them per packet (data plane).</li>
+        <li><b>Path choice:</b> hop count vs <b>sum of link weights</b> (cost) — pick lowest total cost.</li>
+        <li><b>Routing loop</b> = cycle of next hops; either 2-node back-and-forth or a real topology cycle. <b>TTL/hop limit</b> ends it.</li>
+        <li><b>BDP</b> = bandwidth × RTT (data needed "in flight").</li>
+        <li><b>Congestion</b> = too much traffic on a bottleneck → queues, delay, loss.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>2 · Ethernet Basics</h2>
+      <ul>
+        <li><b>CSMA/CD</b> = Carrier Sense Multiple Access + Collision Detection (wired, half-duplex).</li>
+        <li><b>Min frame 64 B</b> lets a collision return before send ends = <b>512 bit-times = slot time 51.2 µs</b> @10 Mbps.</li>
+        <li><b>Binary exponential backoff:</b> after <i>k</i>-th collision wait random <span class="k">{0 … 2^k−1}</span> slots; cap k at 10; <b>abort after 16</b>.</li>
+        <li><b>Learning switch:</b> record <b>source MAC + arrival port</b>; unknown destination → <b>flood</b> all ports except ingress; <b>aging</b> expires stale entries.</li>
+        <li><b>Broadcast MAC</b> = <span class="k">FF:FF:FF:FF:FF:FF</span>.</li>
+        <li><b>Loops fatal:</b> no TTL → <b>broadcast storm</b> + duplicate frames.</li>
+        <li><b>Full duplex</b> (switched point-to-point) → no collisions.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>3 · Advanced Ethernet</h2>
+      <ul>
+        <li><b>Spanning Tree (STP):</b> <b>root</b> = lowest bridge ID; each switch picks a <b>root port</b> (least cost to root; tie → lower neighbor ID); each segment elects a <b>designated port</b>; the rest <b>blocked</b> → loop-free tree; recompute on failure.</li>
+        <li><b>VLAN:</b> logical LAN independent of wiring. <b>Access port</b> = 1 VLAN to a host; <b>trunk</b> = tagged multi-VLAN between switches via <b>802.1Q</b> (4 B tag, <b>12-bit VID</b>).</li>
+        <li><b>TRILL / SPB:</b> link-state routing + encapsulation, use <b>all links (multipath)</b> vs STP blocking.</li>
+        <li><b>SDN / OpenFlow:</b> centralized control plane; flow entry = <b>match → action</b> (forward / flood / drop / send-to-controller); multi-table pipelines.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>4 · Wireless LANs</h2>
+      <ul>
+        <li><b>CSMA/CA</b> (collision <b>avoidance</b>): can't reliably detect collisions at the receiver, so defer.</li>
+        <li><b>DIFS</b> = long contention wait; <b>SIFS</b> = short gap reserved for ACK/priority replies (so ACKs win).</li>
+        <li><b>Hidden node:</b> two stations reach the AP but not each other → collide <b>at the AP</b>. <b>RTS/CTS</b> fixes it — the AP's <b>CTS</b> (heard by the hidden station) silences it.</li>
+        <li><b>ACK after SIFS</b> may skip listening: stations that heard the data still defer; hidden transmitters are usually too far to collide at the receiver.</li>
+        <li><b>WiMAX / LTE:</b> base station <b>schedules</b> subscribers (no contention); subscribers need not hear one another.</li>
+        <li><b>Mobility guard:</b> Δd = v·t → time shift Δd/c; guard ≈ <b>2·Δd/c</b> (c ≈ 300 m/µs).</li>
+        <li><b>Two-ray ground:</b> received power ∝ <b>1/r⁴</b>.</li>
+        <li><b>WPA2:</b> four-way handshake binds fresh <b>nonces</b> → defeats simple replay.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>5 · Other LANs</h2>
+      <ul>
+        <li><b>VPN:</b> private connectivity over a public net via <b>tunneling / encapsulation</b>; <b>split tunneling</b> sends only some traffic through it. The tunnel endpoint needs a route <i>outside</i> the tunnel.</li>
+        <li><b>Token Ring (802.5) / Token Bus:</b> a <b>token</b> circulates; only the holder transmits → collision-free.</li>
+        <li><b>Virtual circuit:</b> connection-oriented; <b>setup</b> then data; switches hold per-flow state and translate the <b>VCI per link</b> as <span class="k">(VCI_in, in-port) → (VCI_out, out-port)</span>. Sender's out-VCI on a link = receiver's in-VCI on that link.</li>
+        <li><b>vs datagram:</b> no setup, no per-flow state, packets routed independently.</li>
+        <li><b>ATM:</b> <b>53-byte cells</b> (5 B header + 48 B payload); fixed size → predictable queuing/jitter.</li>
+        <li><b>AAL-5 XOR parity cell:</b> 1 extra cell recovers any <b>single</b> lost cell; overhead ≈ <b>1/N</b>; break-even vs retransmission at <b>p ≈ 1/N²</b> (N = 20 → 0.25%).</li>
+        <li><b>Carrier Ethernet:</b> Ethernet service across a provider network via <b>EVC</b>s.</li>
+      </ul>
+    </section>
+  </div>
+
+  <div class="box">
+    <h2>Must-memorize numbers &amp; formulas</h2>
+    <div class="row">
+      <div>
+        <ul>
+          <li>Min Ethernet frame <b>64 B</b>; slot <b>51.2 µs</b> @10 Mbps</li>
+          <li>Backoff <span class="k">{0…2^k−1}</span>, cap <b>10</b>, abort <b>16</b></li>
+          <li>Broadcast <span class="k">FF:FF:FF:FF:FF:FF</span></li>
+          <li><b>BDP</b> = bandwidth × RTT</li>
+          <li>Two-ray power ∝ <b>1/r⁴</b></li>
+        </ul>
+      </div>
+      <div>
+        <ul>
+          <li>Wi-Fi slot <b>9 µs</b> (802.11g), SIFS <b>10 µs</b>, DIFS <b>28 µs</b></li>
+          <li>Contention loss = <span class="k">contention / (contention + transmit)</span></li>
+          <li>Guard ≈ <b>2·Δd/c</b>; c ≈ <b>300 m/µs</b></li>
+          <li>ATM cell <b>53 B</b> (5 + 48); XOR break-even <b>p ≈ 1/N²</b></li>
+          <li>10 Mbps ≈ <b>1 byte / 0.8 µs</b></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
