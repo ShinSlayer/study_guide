@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Networking Animations — Chapters 1–5</title>
+<style>
+  :root{--bg:#0f172a;--panel:#1e293b;--ink:#e2e8f0;--mut:#94a3b8;--acc:#38bdf8;--ok:#4ade80;--warn:#f87171;--gold:#fbbf24}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,Segoe UI,Roboto,sans-serif}
+  header{padding:20px 24px 8px}
+  h1{margin:0 0 4px;font-size:22px}
+  header p{margin:0;color:var(--mut);font-size:14px}
+  nav{display:flex;flex-wrap:wrap;gap:8px;padding:12px 24px}
+  nav button{background:var(--panel);color:var(--ink);border:1px solid #334155;border-radius:8px;padding:8px 14px;cursor:pointer;font-size:14px}
+  nav button.active{background:var(--acc);color:#082f49;border-color:var(--acc);font-weight:600}
+  main{padding:0 24px 40px;max-width:960px}
+  .demo{display:none}
+  .demo.active{display:block}
+  canvas{width:100%;height:auto;background:#0b1220;border:1px solid #334155;border-radius:12px;display:block}
+  .controls{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+  .controls button{background:#0ea5e9;color:#04212f;border:0;border-radius:8px;padding:8px 14px;cursor:pointer;font-weight:600;font-size:14px}
+  .controls button.ghost{background:var(--panel);color:var(--ink);border:1px solid #334155;font-weight:400}
+  .caption{color:var(--mut);font-size:14px;min-height:44px}
+  table{border-collapse:collapse;margin-top:12px;font-size:13px;width:100%;max-width:520px}
+  th,td{border:1px solid #334155;padding:4px 8px;text-align:left}
+  th{background:var(--panel)}
+  .badge{display:inline-block;padding:1px 7px;border-radius:999px;font-size:12px;margin-left:6px}
+  .badge.ok{background:rgba(74,222,128,.18);color:var(--ok)}
+  .badge.warn{background:rgba(248,113,113,.18);color:var(--warn)}
+  .legend{color:var(--mut);font-size:13px;margin-top:8px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Networking Animations — Chapters 1–5</h1>
+  <p>Interactive, self-contained demos for <em>An Introduction to Computer Networks</em> (Dordal, 2e). No internet or libraries required.</p>
+</header>
+
+<nav>
+  <button data-demo="csma" class="active">Ch 2 · CSMA/CD &amp; backoff</button>
+  <button data-demo="switch">Ch 2–3 · Learning switch</button>
+  <button data-demo="hidden">Ch 4 · Hidden node / RTS-CTS</button>
+</nav>
+
+<main>
+  <section id="csma" class="demo active">
+    <canvas id="cv-csma" width="800" height="320"></canvas>
+    <div class="controls">
+      <button id="csma-play">▶ Play</button>
+      <button id="csma-step" class="ghost">Step</button>
+      <button id="csma-reset" class="ghost">Reset</button>
+    </div>
+    <div class="caption" id="csma-cap"></div>
+    <div class="legend">Four stations collide at T=0, then draw backoff slots k ∈ {0,1,2,3}. Each transmits in its own slot — no further collisions.</div>
+  </section>
+
+  <section id="switch" class="demo">
+    <canvas id="cv-switch" width="800" height="320"></canvas>
+    <div class="controls">
+      <button id="sw-next">Next ▶</button>
+      <button id="sw-reset" class="ghost">Reset</button>
+    </div>
+    <div class="caption" id="sw-cap"></div>
+    <table id="sw-table">
+      <tr><th>Switch</th><th>Known destinations</th></tr>
+      <tr><td>S1</td><td id="s1">—</td></tr>
+      <tr><td>S2</td><td id="s2">—</td></tr>
+    </table>
+    <div class="legend">A and B attach to S1; C attaches to S2. Tables start empty; the switch learns the <b>source</b> of each frame and floods unknown destinations.</div>
+  </section>
+
+  <section id="hidden" class="demo">
+    <canvas id="cv-hidden" width="800" height="320"></canvas>
+    <div class="controls">
+      <button id="hd-next">Next ▶</button>
+      <button id="hd-mode">Switch to RTS/CTS</button>
+      <button id="hd-reset" class="ghost">Reset</button>
+    </div>
+    <div class="caption" id="hd-cap"></div>
+    <div class="legend">A and C can each reach AP&nbsp;B but <b>not each other</b> (hidden nodes). Without RTS/CTS they collide at B; with RTS/CTS, B's CTS tells C to defer.</div>
+  </section>
+</main>
+
+<script>
+(function(){
+  "use strict";
+  var C={bg:"#0b1220",ink:"#e2e8f0",mut:"#94a3b8",acc:"#38bdf8",ok:"#4ade80",warn:"#f87171",gold:"#fbbf24",panel:"#1e293b",line:"#475569"};
+
+  function station(ctx,x,y,w,label,status,color){
+    ctx.save();
+    ctx.fillStyle=C.panel;ctx.strokeStyle=color||C.line;ctx.lineWidth=2;
+    roundRect(ctx,x-w/2,y-26,w,52,10);ctx.fill();ctx.stroke();
+    ctx.fillStyle=C.ink;ctx.font="bold 16px system-ui";ctx.textAlign="center";ctx.textBaseline="middle";
+    ctx.fillText(label,x,y);
+    if(status){ctx.fillStyle=color||C.mut;ctx.font="12px system-ui";ctx.fillText(status,x,y+40);}
+    ctx.restore();
+  }
+  function roundRect(ctx,x,y,w,h,r){
+    ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();
+  }
+  function arrow(ctx,x1,y1,x2,y2,color,label){
+    ctx.save();ctx.strokeStyle=color;ctx.fillStyle=color;ctx.lineWidth=3;
+    ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+    var a=Math.atan2(y2-y1,x2-x1),s=12;
+    ctx.beginPath();ctx.moveTo(x2,y2);
+    ctx.lineTo(x2-s*Math.cos(a-0.4),y2-s*Math.sin(a-0.4));
+    ctx.lineTo(x2-s*Math.cos(a+0.4),y2-s*Math.sin(a+0.4));
+    ctx.closePath();ctx.fill();
+    if(label){ctx.font="12px system-ui";ctx.textAlign="center";ctx.textBaseline="bottom";ctx.fillText(label,(x1+x2)/2,(y1+y2)/2-6);}
+    ctx.restore();
+  }
+  function message(ctx,x,y,label,color){
+    ctx.save();
+    ctx.fillStyle=color;ctx.globalAlpha=.25;ctx.beginPath();ctx.arc(x,y,20,0,7);ctx.fill();
+    ctx.globalAlpha=1;ctx.strokeStyle=color;ctx.lineWidth=2;ctx.beginPath();ctx.arc(x,y,20,0,7);ctx.stroke();
+    ctx.fillStyle=color;ctx.font="bold 11px system-ui";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(label,x,y);
+    ctx.restore();
+  }
+  function title(ctx,t){ctx.save();ctx.fillStyle=C.ink;ctx.font="bold 15px system-ui";ctx.textAlign="left";ctx.textBaseline="top";ctx.fillText(t,18,14);ctx.restore();}
+
+  // ---------------- Demo 1: CSMA/CD + backoff ----------------
+  var csma={step:0,timer:null,max:7};
+  var csmaCaptions=[
+    "T=0: the medium is idle. All four stations have a frame to send.",
+    "All four stations sense the medium idle and begin transmitting at once → a collision on the shared bus.",
+    "Each station waits a random number of slots: A→0, B→1, C→2, D→3. This is binary exponential backoff (range 2^k).",
+    "Slot 1: A's counter is 0 → A transmits. The medium is busy but nobody else's counter has expired.",
+    "Slot 2: B transmits (its counter reached 0).",
+    "Slot 3: C transmits.",
+    "Slot 4: D transmits. All frames delivered; the medium returns to idle."
+  ];
+  function drawCsma(){
+    var cv=document.getElementById("cv-csma"),ctx=cv.getContext("2d");
+    ctx.fillStyle=C.bg;ctx.fillRect(0,0,cv.width,cv.height);
+    title(ctx,"CSMA/CD + binary exponential backoff (4 stations on a shared bus)");
+    var s=csma.step;
+    var busY=250, x0=90, x1=720;
+    ctx.strokeStyle=(s===1)?C.warn:(s>=3&&s<=6)?C.ok:C.line;
+    ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(x0,busY);ctx.lineTo(x1,busY);ctx.stroke();
+    if(s===1){
+      ctx.fillStyle=C.warn;ctx.font="bold 18px system-ui";ctx.textAlign="center";
+      ctx.fillText("COLLISION — signal overlap on the bus",400,busY+46);
+    }
+    var xs=[170,340,510,680], names=["A","B","C","D"], k=[0,1,2,3];
+    for(var i=0;i<4;i++){
+      var status="idle",color=C.line;
+      if(s===1){status="transmitting";color=C.warn;}
+      else if(s===2){status="backoff k="+k[i];color=C.gold;}
+      else if(s===3||s===4||s===5||s===6){
+        var active=(s-3)===i;
+        status=active?"transmitting":(i<s-3?"done":"waiting");
+        color=active?C.ok:(i<s-3?C.mut:C.gold);
+      }
+      station(ctx,xs[i],190,64,names[i],status,color);
+      ctx.strokeStyle=color;ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(xs[i],216);ctx.lineTo(xs[i],busY);ctx.stroke();
+      if((s===3&&i===0)||(s===4&&i===1)||(s===5&&i===2)||(s===6&&i===3)){
+        message(ctx,xs[i],busY-24,"FRAME",C.ok);
+      }
+    }
+    document.getElementById("csma-cap").textContent=csmaCaptions[s];
+  }
+  function csmaTick(){csma.step=(csma.step>=csma.max)?0:csma.step+1;drawCsma();}
+  document.getElementById("csma-step").onclick=function(){if(csma.timer){clearInterval(csma.timer);csma.timer=null;document.getElementById("csma-play").textContent="▶ Play";}csmaTick();};
+  document.getElementById("csma-reset").onclick=function(){if(csma.timer){clearInterval(csma.timer);csma.timer=null;document.getElementById("csma-play").textContent="▶ Play";}csma.step=0;drawCsma();};
+  document.getElementById("csma-play").onclick=function(){
+    if(csma.timer){clearInterval(csma.timer);csma.timer=null;this.textContent="▶ Play";}
+    else{csmaTick();this.textContent="⏸ Pause";var self=this;csma.timer=setInterval(function(){csmaTick();},900);}
+  };
+
+  // ---------------- Demo 2: Learning switch ----------------
+  var sw={step:0,max:3};
+  var swCaptions=[
+    "Initial state: both switches have empty forwarding tables.",
+    "A → B. S1 learns A on its A-port. B is unknown, so S1 floods to B and to S2; S2 floods to C and learns A via S1.",
+    "B → A. S1 already knows A (its A-port), so it forwards directly — no flooding. S1 now learns B.",
+    "C → A. S2 knows A via S1, so it forwards to S1 (no flood); S1 forwards to A. S2 now learns C."
+  ];
+  function swTables(){
+    var s=sw.step, t1=[],t2=[];
+    if(s>=1){t1.push("A→A-port");t2.push("A→S1-port");}
+    if(s>=2){t1.push("B→B-port");}
+    if(s>=3){t2.push("C→C-port");}
+    document.getElementById("s1").textContent=t1.length?t1.join(", "):"—";
+    document.getElementById("s2").textContent=t2.length?t2.join(", "):"—";
+  }
+  function drawSw(){
+    var cv=document.getElementById("cv-switch"),ctx=cv.getContext("2d");
+    ctx.fillStyle=C.bg;ctx.fillRect(0,0,cv.width,cv.height);
+    title(ctx,"Ethernet learning switch: learn the source, flood the unknown destination");
+    var s=sw.step;
+    var S1={x:300,y:120},S2={x:580,y:120};
+    ctx.strokeStyle=C.line;ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(S1.x+40,S1.y);ctx.lineTo(S2.x-40,S2.y);ctx.stroke();
+    var A={x:140,y:60},B={x:200,y:230},C={x:700,y:120};
+    ctx.strokeStyle=C.line;ctx.lineWidth=3;
+    [[A,S1],[B,S1],[C,S2]].forEach(function(p){ctx.beginPath();ctx.moveTo(p[0].x,p[0].y);ctx.lineTo(p[1].x,p[1].y);ctx.stroke();});
+    station(ctx,S1.x,S1.y,80,"S1","",C.acc);station(ctx,S2.x,S2.y,80,"S2","",C.acc);
+    station(ctx,A.x,A.y,56,"A","",C.line);station(ctx,B.x,B.y,56,"B","",C.line);station(ctx,C.x,C.y,56,"C","",C.line);
+    if(s===1){
+      arrow(ctx,A.x+30,A.y,S1.x-44,S1.y-14,C.acc,"A→B");
+      arrow(ctx,S1.x+44,S1.y,B.x,S1.y+120,C.ok,"flood");
+      arrow(ctx,S1.x+44,S1.y,S2.x-44,S2.y,C.ok,"flood");
+      arrow(ctx,S2.x+44,S2.y,C.x-30,C.y,C.ok,"flood");
+    } else if(s===2){
+      arrow(ctx,B.x,B.y-30,S1.x-30,S1.y+18,C.acc,"B→A");
+      arrow(ctx,S1.x-44,S1.y-14,A.x+30,A.y,C.ok,"direct");
+    } else if(s===3){
+      arrow(ctx,C.x-30,C.y,S2.x+44,S2.y,C.acc,"C→A");
+      arrow(ctx,S2.x-44,S2.y,S1.x+44,S1.y-14,C.ok,"known: A via S1");
+      arrow(ctx,S1.x-44,S1.y-14,A.x+30,A.y,C.ok,"direct");
+    }
+    swTables();
+    document.getElementById("sw-cap").textContent=swCaptions[s];
+  }
+  document.getElementById("sw-next").onclick=function(){sw.step=(sw.step>=sw.max)?0:sw.step+1;drawSw();};
+  document.getElementById("sw-reset").onclick=function(){sw.step=0;drawSw();};
+
+  // ---------------- Demo 3: Hidden node / RTS-CTS ----------------
+  var hd={step:0,mode:"none",maxNo:3,maxRts:5};
+  function hdReset(){hd.step=0;hd.mode="none";hd.maxNo=3;hd.maxRts=5;}
+  var hdCaptionsNo=[
+    "Idle. A and C can both reach AP B, but A and C cannot hear each other (hidden nodes).",
+    "A senses an idle medium and starts sending data to B.",
+    "C also senses an idle medium (it never heard A) and starts sending to B. The two signals collide at B.",
+    "Collision at B: neither frame decodes, so no ACK is returned. Both stations will back off and retry."
+  ];
+  var hdCaptionsRts=[
+    "Idle. RTS/CTS is enabled.",
+    "A sends a short Request-To-Send (RTS) to B.",
+    "B replies with Clear-To-Send (CTS), heard by both A and C, reserving the medium for a fixed duration.",
+    "C hears the CTS and defers — it will not transmit until the reservation ends.",
+    "A sends its data to B with no interference.",
+    "B sends the ACK. (C has been silent throughout, so the exchange succeeds.)"
+  ];
+  function drawHd(){
+    var cv=document.getElementById("cv-hidden"),ctx=cv.getContext("2d");
+    ctx.fillStyle=C.bg;ctx.fillRect(0,0,cv.width,cv.height);
+    title(ctx,"Hidden node at the access point"+(hd.mode==="rts"?" (RTS/CTS enabled)":hd.mode==="no"?" (no RTS/CTS)":""));
+    var s=hd.step;
+    var A={x:150,y:170},AP={x:400,y:170},C0={x:650,y:170};
+    ctx.save();ctx.setLineDash([5,5]);ctx.strokeStyle="rgba(148,163,184,.45)";ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.arc(AP.x,AP.y,150,0,7);ctx.stroke();ctx.restore();
+    ctx.fillStyle=C.mut;ctx.font="12px system-ui";ctx.textAlign="center";
+    ctx.fillText("AP's radio range",AP.x,AP.y-160);
+    ctx.strokeStyle=hd.mode==="none"?C.line:"rgba(56,189,248,.5)";ctx.lineWidth=2;
+    ctx.strokeRect(A.x,AP.y-56,500,112);
+    station(ctx,A.x,A.y,56,"A","",hd.mode==="none"&&s===3?C.warn:C.line);
+    station(ctx,AP.x,AP.y,64,"AP B","",C.acc);
+    station(ctx,C0.x,C0.y,56,"C","",hd.mode==="none"&&s===3?C.warn:C.line);
+
+    if(hd.mode==="none"){
+      if(s===1){arrow(ctx,A.x+34,A.y,AP.x-36,AP.y,C.acc,"data");}
+      if(s===2){arrow(ctx,A.x+34,A.y,AP.x-36,AP.y,C.acc,"data");arrow(ctx,C0.x-34,C0.y,AP.x+36,AP.y,C.gold,"data");}
+      if(s===3){
+        message(ctx,AP.x,AP.y-70,"COLLISION",C.warn);
+        ctx.strokeStyle=C.warn;ctx.lineWidth=4;ctx.beginPath();ctx.arc(AP.x,AP.y,58,0,7);ctx.stroke();
+      }
+    } else if(hd.mode==="rts"){
+      if(s===1){arrow(ctx,A.x+34,A.y,AP.x-36,AP.y,C.gold,"RTS");}
+      if(s===2){arrow(ctx,AP.x-40,AP.y,AP.x-120,AP.y,C.acc,"CTS");arrow(ctx,AP.x+40,AP.y,AP.x+120,AP.y,C.acc,"CTS");}
+      if(s===3){message(ctx,C0.x,C0.y-70,"defer",C.mut);}
+      if(s===4){arrow(ctx,A.x+34,A.y,AP.x-36,AP.y,C.acc,"data");}
+      if(s===5){arrow(ctx,AP.x-40,AP.y,A.x+34,A.y-14,C.ok,"ACK");message(ctx,C0.x,C0.y-70,"defer",C.mut);}
+    }
+    var cap=hd.mode==="none"?hdCaptionsNo[s]:(hd.mode==="rts"?hdCaptionsRts[s]:"Choose a scenario with the button above.");
+    document.getElementById("hd-cap").textContent=cap;
+  }
+  document.getElementById("hd-next").onclick=function(){
+    if(hd.mode==="none"&&hd.step>=3){hd.mode="rts";hd.step=0;}
+    else if(hd.mode==="rts"&&hd.step>=5){hd.mode="none";hd.step=0;}
+    else{hd.step++;}
+    drawHd();
+  };
+  document.getElementById("hd-mode").onclick=function(){hd.mode=(hd.mode==="rts")?"none":"rts";hd.step=0;drawHd();};
+  document.getElementById("hd-reset").onclick=function(){hdReset();drawHd();};
+
+  // ---------------- tab switching ----------------
+  var tabs=document.querySelectorAll("nav button");
+  function activate(id,btn){
+    document.querySelectorAll(".demo").forEach(function(d){d.classList.remove("active");});
+    tabs.forEach(function(b){b.classList.remove("active");});
+    document.getElementById(id).classList.add("active");
+    btn.classList.add("active");
+    if(id==="csma")drawCsma();if(id==="switch")drawSw();if(id==="hidden")drawHd();
+  }
+  tabs.forEach(function(b){b.onclick=function(){activate(this.getAttribute("data-demo"),this);};});
+
+  // initial draw
+  drawCsma();
+})();
+</script>
+</body>
+</html>
